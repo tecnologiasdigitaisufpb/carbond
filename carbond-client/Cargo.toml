@@ -1,0 +1,23 @@
+[package]
+name = "carbond-client"
+version = "0.1.0"
+authors = [
+    "Andreas Schmidt <andreas.schmidt@cs.uni-saarland.de>",
+    "Robin Ohs <ohs@cs.uni-saarland.de>"
+]
+description = ""
+edition = "2021"
+readme = ".../README.md"
+keywords = ["carbon", "emissions"]
+license = "MIT"
+
+[dependencies]
+carbond-lib = { path = "../carbond-lib" }
+color-eyre = "0.6.2"
+uom = { git = "https://github.com/iliekturtles/uom", features = ["f64"], rev = "c6603db14df35581cd12ce0247dcf1b3f9bc0038" }
+thiserror = "1.0.40"
+
+[dev-dependencies]
+powercap = { version = "0.3.5", features = ["mock"] }
+tempdir = "0.3.7"
+tokio = { version = "1.28.0", features = ["full"] }

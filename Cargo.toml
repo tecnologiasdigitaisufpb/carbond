@@ -1,0 +1,7 @@
+[workspace]
+
+members = [
+    "carbond",
+    "carbond-lib",
+    "carbond-client"
+]

@@ -1,0 +1,20 @@
+[package]
+name = "carbond-lib"
+version = "0.1.0"
+authors = [
+    "Andreas Schmidt <andreas.schmidt@cs.uni-saarland.de>",
+    "Robin Ohs <ohs@cs.uni-saarland.de>"
+]
+description = ""
+edition = "2021"
+readme = ".../README.md"
+keywords = ["carbon", "emissions"]
+license = "MIT"
+
+[dependencies]
+uom = { git = "https://github.com/iliekturtles/uom", features = ["f64"], rev = "c6603db14df35581cd12ce0247dcf1b3f9bc0038" }
+const_format = { version = "0.2.30", features = ["rust_1_51"]}
+tokio = { version = "1.28.0", features = ["full"] }
+thiserror = "1.0.40"
+async-trait = "0.1.68"
+log = "~0.4"

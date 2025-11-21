@@ -1,0 +1,191 @@
+image: registry.gitlab.com/netzdoktor/resourcegauge-rs
+
+stages:
+  - check
+  - test
+  - build
+  - release
+
+check:
+  stage: check
+  before_script:
+    - rustc --version
+    - cargo --version
+    - mkdir -p .cargo_cache
+    - export CARGO_HOME="${PWD}/.cargo_cache"
+  script:
+    - cargo check
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cargo_cache/
+      - target/
+
+outdated:
+  stage: check
+  before_script:
+    - cargo outdated -V
+    - mkdir -p .cargo_cache
+    - export CARGO_HOME="${PWD}/.cargo_cache"
+  script:
+    - cargo outdated -w
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cargo_cache/
+      - target/
+
+udeps:
+  stage: check
+  before_script:
+    - cargo +nightly -V
+    - rustup default nightly
+    - cargo udeps --help
+    - mkdir -p .cargo_cache
+    - export CARGO_HOME="${PWD}/.cargo_cache"
+  script:
+    - cargo udeps -p carbond --all-targets
+    - cargo udeps -p carbond-client --all-targets
+    - cargo udeps -p carbond-lib --all-targets
+  after_script:
+    - rustup default stable
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cargo_cache/
+      - target/
+
+fmt:
+  stage: test
+  script:
+    - cargo fmt --all -- --check
+
+clippy:
+  stage: test
+  before_script:
+    - cargo clippy --version
+  script:
+    - cargo clippy --all-features --all-targets -- --deny warnings
+    - cargo clippy --all-features -- --deny warnings -D clippy::expect_used -D clippy::panic  -D clippy::unwrap_used
+
+unit-test:
+  stage: test
+  before_script:
+    - mkdir -p .cargo_cache
+    - export CARGO_HOME="${PWD}/.cargo_cache"
+  script:
+    - cargo test --verbose --all-features --workspace
+
+cross:
+  stage: build
+  image:
+    name: ghcr.io/cross-rs/x86_64-unknown-linux-musl:latest
+  before_script:
+    - apt update && apt install curl build-essential  -y
+    - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+    - source "$HOME/.cargo/env"
+    - rustup target add x86_64-unknown-linux-musl
+  script:
+    - cargo build --release --target x86_64-unknown-linux-musl
+    - du -h target/x86_64-unknown-linux-musl/release/carbond
+    - mkdir assets
+    - pushd target/x86_64-unknown-linux-musl/release
+    - tar czvf ../../../assets/carbond_amd64.tar.gz carbond
+    - popd
+    - find assets
+  artifacts:
+    paths:
+      - assets
+
+build_debian_pkg:
+  image:
+    name: ubuntu:latest
+  stage: build
+  needs:
+    - job: cross
+      artifacts: true
+  script:
+    - set -exuo pipefail
+    - mkdir -p assets debian/usr/bin debian/DEBIAN debian/lib/systemd/system/
+    - pushd debian/usr/bin
+    - tar xvzf ../../../assets/carbond_amd64.tar.gz
+    - popd
+    - version=$(grep version carbond/Cargo.toml | head -1 | awk '{print $3}' | tr -d '"')
+    - |
+      cat > debian/DEBIAN/control <<- EOF
+      Package: carbond
+      Version: $version
+      Section: utils
+      Priority: optional
+      Architecture: amd64
+      Maintainer: GalapagOS
+      Homepage: tbd
+      Repository: tbd
+      Description:
+        A utility for downloading the latest carbon intensity data for electricity.
+      EOF
+    - |
+      cat > debian/lib/systemd/system/carbond.service <<-EOF
+      [Unit]
+      Description=Download the latest carbon intensity data for electricity.
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/bin/carbond
+
+      [Install]
+      WantedBy=multi-user.target
+      EOF
+    - find debian
+    - cat debian/DEBIAN/control
+    - cat debian/lib/systemd/system/carbond.service
+    - dpkg-deb -Zgzip --build debian assets/carbond_amd64.deb
+    - find assets
+  artifacts:
+    paths:
+      - assets/*.deb
+
+prepare:release:
+  stage: release
+  needs:
+    - job: build_debian_pkg
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "Preparing release"
+    - mv assets/carbond_amd64.deb carbond_amd64.deb
+  after_script:
+    - echo "JOB_ID=$CI_JOB_ID" >> job.env
+  artifacts:
+    paths:
+      - carbond_amd64.deb
+    expire_in: never
+    reports:
+      dotenv: job.env
+  
+create:release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG
+  needs:
+    - job: prepare:release
+      artifacts: true
+  variables:
+    TAG: '$CI_COMMIT_TAG'
+  script:
+    - echo "Create release $TAG"
+    - echo $JOB_ID
+  release:
+    name: 'Release $TAG'
+    tag_name: '$TAG'
+    ref: '$TAG'
+    description: 'Release $TAG'
+    assets:
+      links:
+        - name: "carbond_amd64.deb"
+          url: "https://dgit.cs.uni-saarland.de/galapagos/carbond/-/jobs/$JOB_ID/artifacts/download"
+
+
+  

@@ -1,0 +1,33 @@
+[package]
+name = "carbond"
+version = "0.1.0"
+authors = [
+    "Andreas Schmidt <andreas.schmidt@cs.uni-saarland.de>",
+    "Robin Ohs <ohs@cs.uni-saarland.de>"
+]
+description = ""
+edition = "2021"
+readme = ".../README.md"
+keywords = ["carbon", "emissions"]
+license = "MIT"
+
+[dependencies]
+carbond-lib = { path = "../carbond-lib" }
+# Tokio
+tokio = { version = "~1.28", features = ["full"] }
+# Error
+color-eyre = "~0.6"
+thiserror = "~1.0"
+# HTTP
+reqwest = { version = "~0.11", features = ["json"] }
+openssl = { version = "~0.10", features = ["vendored"] }
+# Serde
+serde = { version = "~1.0", features = ["derive"] }
+toml = "~0.7"
+# Logging
+stderrlog = "~0.5"
+log = "~0.4"
+# Misc
+async-channel = "1.8.0"
+regex = "~1.8"
+uom = { git = "https://github.com/iliekturtles/uom", features = ["f64"], rev = "c6603db14df35581cd12ce0247dcf1b3f9bc0038" }
